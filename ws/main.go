@@ -36,4 +36,5 @@ func (m *Manager) WsHandler(w http.ResponseWriter, r *http.Request) {
 	client := NewClient(m, conn)
 
 	m.clients[client] = true
+	client.ReadMsg()
 }
