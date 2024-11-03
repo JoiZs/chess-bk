@@ -1,7 +1,9 @@
 package ws
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/websocket"
@@ -11,6 +13,7 @@ type Client struct {
 	id      uuid.UUID
 	conn    *websocket.Conn
 	manager *Manager
+	ingress chan Event
 }
 
 func NewClient(m *Manager, c *websocket.Conn) *Client {
@@ -23,6 +26,7 @@ func NewClient(m *Manager, c *websocket.Conn) *Client {
 		id:      uid,
 		conn:    c,
 		manager: m,
+		ingress: make(chan Event),
 	}
 }
 
@@ -35,25 +39,47 @@ func (c *Client) ReadMsg() {
 			}
 		}
 
-		fmt.Println(string(pl))
-		c.WriteMsg(pl)
+		var request Event
+		fmt.Println(request.Type)
+
+		if err := json.Unmarshal(pl, &request); err != nil {
+			log.Printf("Err at requst event json Unmarshal, %v", err)
+			break
+		}
+		if err := c.manager.routeEvent(request, c); err != nil {
+			log.Println("Err handling message route event,", err)
+		}
 	}
 	defer c.BreakConn()
 }
 
-func (c *Client) WriteMsg(data []byte) {
-	for client := range c.manager.clients {
-		err := client.conn.WriteMessage(websocket.TextMessage, data)
-		if err != nil {
-			fmt.Printf("Err at writing messages, %v", err)
+func (c *Client) WriteMsg() {
+	for {
+		select {
+		case message, ok := <-c.ingress:
+			if !ok {
+				if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
+					log.Println("Connection closed.")
+				}
+				return
+			}
+
+			data, err := json.Marshal(message)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Println(err)
+			}
+			log.Println("Message Sent")
 		}
 	}
 }
 
 func (c *Client) BreakConn() {
 	c.manager.mu.Lock()
+	defer c.manager.mu.Unlock()
 	c.conn.Close()
 	delete(c.manager.clients, c)
-
-	defer c.manager.mu.Unlock()
 }
