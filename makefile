@@ -10,3 +10,6 @@ dev:
 
 build:vet
 	@go build -o bin/main
+
+test:
+	@go test ./tests/
