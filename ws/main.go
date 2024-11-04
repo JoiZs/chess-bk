@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/JoiZs/chess-bk/game"
 	"github.com/gorilla/websocket"
 )
 
@@ -20,13 +21,16 @@ type Manager struct {
 	clients  map[*Client]bool
 	mu       sync.RWMutex
 	handlers map[EventType]EventHandler
+	matchQ   *game.MatchMakingQ
 }
 
 func InitManager() *Manager {
+	mq := game.NewMatchMakingQ()
 	m := &Manager{
 		clients:  make(map[*Client]bool),
 		mu:       sync.RWMutex{},
 		handlers: make(map[EventType]EventHandler),
+		matchQ:   mq,
 	}
 	m.setupEventHandlers()
 	return m
@@ -34,6 +38,7 @@ func InitManager() *Manager {
 
 func (m *Manager) setupEventHandlers() {
 	m.handlers[SendMessage] = SendMessageEventHandler
+	m.handlers[FindMatch] = FindMatchEventHandler
 }
 
 func (m *Manager) routeEvent(event Event, c *Client) error {

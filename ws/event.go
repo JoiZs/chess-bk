@@ -10,6 +10,9 @@ type EventType int
 
 const (
 	SendMessage EventType = iota
+	FindMatch
+	MakeMove
+	GetMatchInfo
 )
 
 type Event struct {
@@ -24,9 +27,27 @@ type ReceivedMessageEvent struct {
 	From    string `json:"from"`
 }
 
+type FindMatchEvent struct {
+	From string `json:"from"`
+}
+
 type NewMessageEvent struct {
 	ReceivedMessageEvent
 	At time.Time `json:"at"`
+}
+
+func FindMatchEventHandler(event Event, c *Client) error {
+	c.manager.matchQ.AddPlayer(c.id)
+
+	count := 30
+
+	for count > 0 {
+		fmt.Println("Matching for ", c.id)
+		count--
+		time.Sleep(time.Second)
+	}
+
+	return nil
 }
 
 func SendMessageEventHandler(event Event, c *Client) error {
