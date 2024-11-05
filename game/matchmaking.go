@@ -88,9 +88,24 @@ func (mq *MatchMakingQ) MatchingPlayers() (*Player, *Player) {
 		fmt.Println("Not enough players to match")
 		return nil, nil
 	}
-
 	p1 := heap.Pop(&mq.pq).(*Player)
 	p2 := heap.Pop(&mq.pq).(*Player)
 
 	return p1, p2
+}
+
+func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
+	timeOutDuration := time.Second * 2
+	mq.mu.Lock()
+	defer mq.mu.Unlock()
+
+	for mq.pq.Len() > 0 {
+		player := mq.pq.Peek()
+		if time.Since(player.priority) >= timeOutDuration {
+			heap.Pop(&mq.pq)
+			fmt.Println("Timeout player removed...")
+		} else {
+			break
+		}
+	}
 }

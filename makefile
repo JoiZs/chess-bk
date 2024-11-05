@@ -12,4 +12,4 @@ build:vet
 	@go build -o bin/main
 
 test:
-	@go test ./tests/
+	@go test ./tests/ -v
