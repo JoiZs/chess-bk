@@ -54,26 +54,23 @@ func (c *Client) ReadMsg() {
 }
 
 func (c *Client) WriteMsg() {
-	for {
-		select {
-		case message, ok := <-c.ingress:
-			if !ok {
-				if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
-					log.Println("Connection closed.")
-				}
-				return
-			}
+	for message := range c.ingress {
+		// if !ok {
+		// 	if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
+		// 		log.Println("Connection closed.")
+		// 	}
+		// 	return
+		// }
 
-			data, err := json.Marshal(message)
-			if err != nil {
-				log.Println(err)
-				return
-			}
-			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-				log.Println(err)
-			}
-			log.Println("Message Sent")
+		data, err := json.Marshal(message)
+		if err != nil {
+			log.Println(err)
+			return
 		}
+		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+			log.Println(err)
+		}
+		log.Println("Message Sent")
 	}
 }
 

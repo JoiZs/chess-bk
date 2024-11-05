@@ -72,7 +72,6 @@ func (mq *MatchMakingQ) AddPlayer(c uuid.UUID) {
 	}
 	mq.mu.Lock()
 	heap.Push(&mq.pq, player)
-	fmt.Println("Added a player ")
 	defer mq.mu.Unlock()
 }
 
