@@ -2,7 +2,7 @@ package game
 
 import (
 	"container/heap"
-	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -64,37 +64,45 @@ func NewMatchMakingQ() *MatchMakingQ {
 	}
 }
 
-func (mq *MatchMakingQ) AddPlayer(c uuid.UUID) {
+func (mq *MatchMakingQ) AddPlayer(c uuid.UUID) *Player {
 	player := &Player{
 		priority: time.Now(),
 		client:   c,
 		index:    mq.pq.Len(),
+		match:    make(chan *ChessGame),
 	}
 	mq.mu.Lock()
 	heap.Push(&mq.pq, player)
 	defer mq.mu.Unlock()
+
+	return player
 }
 
 func (mq *MatchMakingQ) PlayerSize() int {
 	return mq.pq.Len()
 }
 
-func (mq *MatchMakingQ) MatchingPlayers() (*Player, *Player) {
+func (mq *MatchMakingQ) MatchingPlayers() {
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
 
-	if mq.pq.Len() < 2 {
-		fmt.Println("Not enough players to match")
-		return nil, nil
-	}
-	p1 := heap.Pop(&mq.pq).(*Player)
-	p2 := heap.Pop(&mq.pq).(*Player)
+	for mq.pq.Len() >= 2 {
 
-	return p1, p2
+		p1 := heap.Pop(&mq.pq).(*Player)
+		p2 := heap.Pop(&mq.pq).(*Player)
+
+		nGame := NewGame()
+
+		p1.match <- nGame
+		p2.match <- nGame
+
+		log.Printf("Paired: %v & %v\n", p1.client, p2.client)
+
+	}
 }
 
 func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
-	timeOutDuration := time.Second * 2
+	timeOutDuration := time.Second * 10
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
 
@@ -102,7 +110,7 @@ func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
 		player := mq.pq.Peek()
 		if time.Since(player.priority) >= timeOutDuration {
 			heap.Pop(&mq.pq)
-			fmt.Println("Timeout player removed...")
+			log.Printf("Removed, %v\n", player.client)
 		} else {
 			break
 		}

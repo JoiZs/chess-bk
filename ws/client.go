@@ -40,7 +40,6 @@ func (c *Client) ReadMsg() {
 		}
 
 		var request Event
-		fmt.Println(request.Type)
 
 		if err := json.Unmarshal(pl, &request); err != nil {
 			log.Printf("Err at requst event json Unmarshal, %v", err)
@@ -55,13 +54,6 @@ func (c *Client) ReadMsg() {
 
 func (c *Client) WriteMsg() {
 	for message := range c.ingress {
-		// if !ok {
-		// 	if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
-		// 		log.Println("Connection closed.")
-		// 	}
-		// 	return
-		// }
-
 		data, err := json.Marshal(message)
 		if err != nil {
 			log.Println(err)

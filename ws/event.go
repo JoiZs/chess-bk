@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -36,17 +37,45 @@ type NewMessageEvent struct {
 	At time.Time `json:"at"`
 }
 
-func FindMatchEventHandler(event Event, c *Client) error {
-	c.manager.matchQ.AddPlayer(c.id)
-
-	count := 30
-
-	for count > 0 {
-		fmt.Println("Matching for ", c.id)
-		count--
-		time.Sleep(time.Second)
+func makeMsgEvt(msg string) Event {
+	statusMsg := NewMessageEvent{
+		At: time.Now(),
+		ReceivedMessageEvent: ReceivedMessageEvent{
+			Message: msg,
+			From:    "Server",
+		},
 	}
 
+	data, err := json.Marshal(statusMsg)
+	if err != nil {
+		fmt.Printf("Err at marchshalling data, %v", err)
+	}
+
+	msgEvt := Event{
+		Payload: data,
+		Type:    FindMatch,
+	}
+
+	return msgEvt
+}
+
+func FindMatchEventHandler(event Event, c *Client) error {
+	p := c.manager.matchQ.AddPlayer(c.id)
+	log.Printf("Added a player, %v \n", c.id)
+
+	go c.manager.matchQ.MatchingPlayers()
+
+	matchid := p.WaitGame()
+
+	if matchid != nil {
+		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", matchid))
+
+		c.ingress <- msgEvt
+		return nil
+	}
+
+	msgEvt := makeMsgEvt("Match Not Found")
+	c.ingress <- msgEvt
 	return nil
 }
 

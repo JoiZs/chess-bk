@@ -1,6 +1,8 @@
 package game
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -11,21 +13,35 @@ type Player struct {
 	priority time.Time
 	client   uuid.UUID
 	index    int
+	match    chan *ChessGame
 }
 
 type ChessGame struct {
-	Players [2]Player
-	Game    chess.Game
+	id   uuid.UUID
+	Game chess.Game
 }
 
-func NewGame(p1 Player, p2 Player) *ChessGame {
-	var players [2]Player
-
-	players[0] = p1
-	players[1] = p2
+func NewGame() *ChessGame {
+	gid, err := uuid.NewV1()
+	if err != nil {
+		fmt.Printf("Err at creating chess game id: %v", err)
+	}
 
 	return &ChessGame{
-		Players: players,
-		Game:    *chess.NewGame(),
+		id:   gid,
+		Game: *chess.NewGame(),
+	}
+}
+
+func (p *Player) WaitGame() *uuid.UUID {
+	waitTime := time.NewTimer(time.Second * 10)
+
+	select {
+	case gid := <-p.match:
+		log.Println("Matched..")
+		return &gid.id
+	case <-waitTime.C:
+		log.Println("No Match found..")
+		return nil
 	}
 }
