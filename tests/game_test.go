@@ -2,6 +2,8 @@ package tests
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -35,15 +37,23 @@ func TestAll(t *testing.T) {
 		})
 
 	t.Run("Multiple Players and pair them", func(t *testing.T) {
+		logFile, err := os.OpenFile("test.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			t.Fatalf("failed to open log file: %v", err)
+		}
+		defer logFile.Close()
+
+		log.SetOutput(logFile)
+
 		t.Parallel()
 		mq := game.NewMatchMakingQ()
-		pairCount := 0
+		pairCount := 1000
 
 		wg := sync.WaitGroup{}
 
 		players := make(map[*game.Player]bool)
 
-		for i := 1; i <= 50; i++ {
+		for i := 1; i <= pairCount; i++ {
 			playerid, err := uuid.NewV1()
 			if err != nil {
 				fmt.Printf("Err at adding player %v, %v\n", i, err)
@@ -61,17 +71,15 @@ func TestAll(t *testing.T) {
 				defer wg.Done()
 				gid := pl.WaitGame()
 				if gid != nil {
-					pairCount++
+					pairCount--
 				}
 			}(p)
 		}
 
 		wg.Wait()
 
-		fmt.Println(pairCount)
-
-		if pairCount != 50 {
-			t.Errorf("Err at multiple players-%v matchmaking(%v)", pairCount, 50)
+		if pairCount != 0 {
+			t.Errorf("Err at multiple players-%v matchmaking(%v)", pairCount, 0)
 		}
 	})
 }
