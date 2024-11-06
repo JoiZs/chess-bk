@@ -3,7 +3,6 @@ package ws
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -61,7 +60,6 @@ func makeMsgEvt(msg string) Event {
 
 func FindMatchEventHandler(event Event, c *Client) error {
 	p := c.manager.matchQ.AddPlayer(c.id)
-	log.Printf("Added a player, %v \n", c.id)
 
 	go c.manager.matchQ.MatchingPlayers()
 

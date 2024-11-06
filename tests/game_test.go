@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,24 +39,39 @@ func TestAll(t *testing.T) {
 		mq := game.NewMatchMakingQ()
 		pairCount := 0
 
-		for i := 1; i <= 50; i++ {
+		wg := sync.WaitGroup{}
 
-			player, err := uuid.NewV1()
+		players := make(map[*game.Player]bool)
+
+		for i := 1; i <= 50; i++ {
+			playerid, err := uuid.NewV1()
 			if err != nil {
 				fmt.Printf("Err at adding player %v, %v\n", i, err)
 			}
-			mq.AddPlayer(player)
+			player := mq.AddPlayer(playerid)
+
+			players[player] = true
 		}
 
-		for mq.PlayerSize() >= 2 {
-			p1, p2 := mq.MatchingPlayers()
-			if p1 != nil && p2 != nil {
-				pairCount++
-			}
+		go mq.MatchingPlayers()
+
+		for p := range players {
+			wg.Add(1)
+			go func(pl *game.Player) {
+				defer wg.Done()
+				gid := pl.WaitGame()
+				if gid != nil {
+					pairCount++
+				}
+			}(p)
 		}
 
-		if pairCount != 25 {
-			t.Errorf("Err at multiple players-%v matchmaking(%v)", pairCount, 25)
+		wg.Wait()
+
+		fmt.Println(pairCount)
+
+		if pairCount != 50 {
+			t.Errorf("Err at multiple players-%v matchmaking(%v)", pairCount, 50)
 		}
 	})
 }

@@ -72,8 +72,10 @@ func (mq *MatchMakingQ) AddPlayer(c uuid.UUID) *Player {
 		match:    make(chan *ChessGame),
 	}
 	mq.mu.Lock()
-	heap.Push(&mq.pq, player)
 	defer mq.mu.Unlock()
+	heap.Push(&mq.pq, player)
+
+	log.Printf("Added a player: %v\n", c)
 
 	return player
 }
@@ -87,7 +89,6 @@ func (mq *MatchMakingQ) MatchingPlayers() {
 	defer mq.mu.Unlock()
 
 	for mq.pq.Len() >= 2 {
-
 		p1 := heap.Pop(&mq.pq).(*Player)
 		p2 := heap.Pop(&mq.pq).(*Player)
 
@@ -97,12 +98,11 @@ func (mq *MatchMakingQ) MatchingPlayers() {
 		p2.match <- nGame
 
 		log.Printf("Paired: %v & %v\n", p1.client, p2.client)
-
 	}
 }
 
 func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
-	timeOutDuration := time.Second * 10
+	timeOutDuration := time.Second * 2
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
 
