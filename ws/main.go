@@ -19,21 +19,25 @@ var upg = websocket.Upgrader{
 }
 
 type Manager struct {
-	clients  map[*Client]bool
-	mu       sync.RWMutex
-	handlers map[EventType]EventHandler
-	matchQ   *game.MatchMakingQ
-	gameSess map[uuid.UUID][2]game.Player
+	clients         map[*Client]bool
+	clientsByID     map[uuid.UUID]*Client
+	mu              sync.RWMutex
+	handlers        map[EventType]EventHandler
+	matchQ          *game.MatchMakingQ
+	gameSess        map[uuid.UUID][2]game.Player
+	reqRemovePlayer chan []byte
 }
 
 func InitManager() *Manager {
 	mq := game.NewMatchMakingQ()
 	m := &Manager{
-		clients:  make(map[*Client]bool),
-		mu:       sync.RWMutex{},
-		handlers: make(map[EventType]EventHandler),
-		matchQ:   mq,
-		gameSess: make(map[uuid.UUID][2]game.Player),
+		clients:         make(map[*Client]bool),
+		mu:              sync.RWMutex{},
+		handlers:        make(map[EventType]EventHandler),
+		matchQ:          mq,
+		gameSess:        make(map[uuid.UUID][2]game.Player),
+		clientsByID:     make(map[uuid.UUID]*Client),
+		reqRemovePlayer: make(chan []byte),
 	}
 	m.setupEventHandlers()
 
@@ -43,6 +47,8 @@ func InitManager() *Manager {
 func (m *Manager) setupEventHandlers() {
 	m.handlers[SendMessage] = SendMessageEventHandler
 	m.handlers[FindMatch] = FindMatchEventHandler
+	m.handlers[RematchReq] = RematchReqEventHandler
+	m.handlers[RematchRes] = RematchResEventHandler
 }
 
 func (m *Manager) routeEvent(event Event, c *Client) error {
@@ -62,11 +68,19 @@ func (m *Manager) WsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Err at upgrading ws conn, %v", err)
 	}
 
-	fmt.Printf("Connected: %v", conn.RemoteAddr())
+	fmt.Printf("Connected: %v\n", conn.RemoteAddr())
 
-	client := NewClient(m, conn)
-
+	uid, err := uuid.NewV1()
+	if err != nil {
+		fmt.Printf("Err at creating new ws client, %v", err)
+	}
+	client := NewClient(m, uid, conn)
 	m.clients[client] = true
+	m.clientsByID[uid] = client
 	go client.ReadMsg()
 	go client.WriteMsg()
+
+	// for range m.reqRemovePlayer {
+	// 	go m.matchQ.RemoveTimeoutPlayers()
+	// }
 }

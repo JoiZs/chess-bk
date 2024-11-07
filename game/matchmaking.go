@@ -5,8 +5,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/gofrs/uuid"
 )
 
 type PlayerPoolQ []*Player
@@ -64,20 +62,15 @@ func NewMatchMakingQ() *MatchMakingQ {
 	}
 }
 
-func (mq *MatchMakingQ) AddPlayer(c uuid.UUID) *Player {
-	player := &Player{
-		priority: time.Now(),
-		client:   c,
-		index:    mq.pq.Len(),
-		match:    make(chan *ChessGame),
-	}
+func (mq *MatchMakingQ) AddPlayer(p *Player) error {
+	log.Println("add player called...")
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
-	heap.Push(&mq.pq, player)
+	heap.Push(&mq.pq, p)
 
-	log.Printf("Added a player: %v\n", c)
+	log.Printf("Added a player: %v\n", p.Client)
 
-	return player
+	return nil
 }
 
 func (mq *MatchMakingQ) PlayerSize() int {
@@ -94,11 +87,13 @@ func (mq *MatchMakingQ) MatchingPlayers() {
 
 		nGame := NewGame()
 
-		p1.match <- nGame
-		p2.match <- nGame
+		p1.Match <- nGame
+		p2.Match <- nGame
 
-		log.Printf("Paired: %v & %v\n", p1.client, p2.client)
+		log.Printf("Paired: %v & %v\n", p1.Client, p2.Client)
 	}
+
+	log.Println("Remaining: ", mq.pq.Len())
 }
 
 func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
@@ -106,13 +101,15 @@ func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
 	mq.mu.Lock()
 	defer mq.mu.Unlock()
 
+	log.Println("Timeout Called...")
+
 	for mq.pq.Len() > 0 {
 		player := mq.pq.Peek()
 		if time.Since(player.priority) >= timeOutDuration {
 			heap.Pop(&mq.pq)
-			log.Printf("Removed, %v\n", player.client)
+			log.Printf("Removed, %v\n", player.Client)
 		} else {
-			break
+			return
 		}
 	}
 }

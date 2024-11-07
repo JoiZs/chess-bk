@@ -2,31 +2,28 @@ package ws
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 
+	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/websocket"
 )
 
 type Client struct {
-	id      uuid.UUID
-	conn    *websocket.Conn
-	manager *Manager
-	ingress chan Event
+	id            uuid.UUID
+	conn          *websocket.Conn
+	manager       *Manager
+	ingress       chan Event
+	Playerprofile *game.Player
 }
 
-func NewClient(m *Manager, c *websocket.Conn) *Client {
-	uid, err := uuid.NewV1()
-	if err != nil {
-		fmt.Printf("Err at creating new ws client, %v", err)
-	}
-
+func NewClient(m *Manager, id uuid.UUID, c *websocket.Conn) *Client {
 	return &Client{
-		id:      uid,
-		conn:    c,
-		manager: m,
-		ingress: make(chan Event),
+		id:            id,
+		conn:          c,
+		manager:       m,
+		ingress:       make(chan Event),
+		Playerprofile: nil,
 	}
 }
 
@@ -71,4 +68,5 @@ func (c *Client) BreakConn() {
 	defer c.manager.mu.Unlock()
 	c.conn.Close()
 	delete(c.manager.clients, c)
+	delete(c.manager.clientsByID, c.id)
 }

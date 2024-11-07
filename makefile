@@ -13,3 +13,4 @@ build:vet
 
 test:
 	@go test ./tests/ -v
+

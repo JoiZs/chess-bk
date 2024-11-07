@@ -18,10 +18,12 @@ func TestAll(t *testing.T) {
 			t.Parallel()
 			mq := game.NewMatchMakingQ()
 
-			p1, err := uuid.NewV1()
+			p1id, err := uuid.NewV1()
 			if err != nil {
 				fmt.Println("Err at adding player 1")
 			}
+
+			p1 := game.NewPlayer(p1id, mq.PlayerSize())
 
 			mq.AddPlayer(p1)
 
@@ -47,7 +49,7 @@ func TestAll(t *testing.T) {
 
 		t.Parallel()
 		mq := game.NewMatchMakingQ()
-		pairCount := 1000
+		pairCount := 5
 
 		wg := sync.WaitGroup{}
 
@@ -58,8 +60,9 @@ func TestAll(t *testing.T) {
 			if err != nil {
 				fmt.Printf("Err at adding player %v, %v\n", i, err)
 			}
-			player := mq.AddPlayer(playerid)
 
+			player := game.NewPlayer(playerid, mq.PlayerSize())
+			mq.AddPlayer(player)
 			players[player] = true
 		}
 
@@ -70,8 +73,11 @@ func TestAll(t *testing.T) {
 			go func(pl *game.Player) {
 				defer wg.Done()
 				gid := pl.WaitGame()
+				time.Sleep(time.Second * 1)
 				if gid != nil {
 					pairCount--
+				} else {
+					log.Println("Unable to match")
 				}
 			}(p)
 		}
