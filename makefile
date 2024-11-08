@@ -14,3 +14,5 @@ build:vet
 test:
 	@go test ./tests/ -v
 
+redis_docker:
+	@docker-compose --env-file docker.env up -d

@@ -49,7 +49,7 @@ func TestAll(t *testing.T) {
 
 		t.Parallel()
 		mq := game.NewMatchMakingQ()
-		pairCount := 5
+		pairCount := 1000
 
 		wg := sync.WaitGroup{}
 
@@ -73,7 +73,6 @@ func TestAll(t *testing.T) {
 			go func(pl *game.Player) {
 				defer wg.Done()
 				gid := pl.WaitGame()
-				time.Sleep(time.Second * 1)
 				if gid != nil {
 					pairCount--
 				} else {

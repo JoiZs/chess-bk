@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/JoiZs/chess-bk/initi"
@@ -11,7 +12,9 @@ func main() {
 	// initialize the project
 	initi.InitProj()
 
-	wsM := ws.InitManager()
+	ctx := context.Background()
+
+	wsM := ws.InitManager(ctx)
 
 	// http connection
 	http.HandleFunc("/ws", wsM.WsHandler)
