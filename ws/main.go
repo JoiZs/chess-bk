@@ -23,11 +23,11 @@ var upg = websocket.Upgrader{
 type Manager struct {
 	clients     map[*Client]bool
 	clientsByID map[uuid.UUID]*Client
-	mu          sync.RWMutex
 	handlers    map[EventType]EventHandler
 	matchQ      *game.MatchMakingQ
 	gameSess    map[uuid.UUID][2]game.Player
 	rdClient    *cachedb.RdCache
+	mu          sync.RWMutex
 }
 
 func InitManager(ctx context.Context) *Manager {

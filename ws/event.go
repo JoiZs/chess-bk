@@ -24,8 +24,8 @@ const (
 )
 
 type Event struct {
-	Type    EventType       `json:"type"`
 	Payload json.RawMessage `json:"payload"`
+	Type    EventType       `json:"type"`
 }
 
 type EventHandler func(e Event, c *Client) error
@@ -46,19 +46,19 @@ type FindMatchEvent struct {
 }
 
 type NewMessageEvent struct {
-	ReceivedMessageEvent
 	At time.Time `json:"at"`
+	ReceivedMessageEvent
 }
 
 type ReceivedRematchEvent struct {
-	IsGame   bool   `json:"isgame"`
 	From     string `json:"from"`
 	GameSess string `json:"gamesess"`
+	IsGame   bool   `json:"isgame"`
 }
 
 type RematchReqEvent struct {
-	ReceivedRematchEvent
 	At time.Time `json:"at"`
+	ReceivedRematchEvent
 }
 
 func makeMsgEvt(msg string) Event {
@@ -177,22 +177,24 @@ func FindMatchEventHandler(event Event, c *Client) error {
 
 	go c.manager.matchQ.MatchingPlayers()
 
-	matchid := p.WaitGame()
+	currMatch := p.WaitGame()
 
-	if matchid != nil {
-		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", matchid))
+	if currMatch != nil {
+		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", currMatch.Id))
 		c.ingress <- msgEvt
+
+		c.manager.rdClient.StoreGame(currMatch.Id, currMatch.Game)
 
 		c.manager.mu.Lock()
 		// Add game session to manager
-		currPlayers, ok := c.manager.gameSess[*matchid]
+		currPlayers, ok := c.manager.gameSess[currMatch.Id]
 		if !ok {
 			var newPlayers [2]game.Player
 			newPlayers[0] = *p
-			c.manager.gameSess[*matchid] = newPlayers
+			c.manager.gameSess[currMatch.Id] = newPlayers
 		} else {
 			currPlayers[1] = *p
-			c.manager.gameSess[*matchid] = currPlayers
+			c.manager.gameSess[currMatch.Id] = currPlayers
 		}
 		c.manager.mu.Unlock()
 

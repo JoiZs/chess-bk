@@ -11,15 +11,15 @@ import (
 
 type Player struct {
 	priority time.Time
-	Client   uuid.UUID
-	index    int
 	Match    chan *ChessGame
+	index    int
+	Client   uuid.UUID
 	Rematch  bool
 }
 
 type ChessGame struct {
-	id   uuid.UUID
 	Game chess.Game
+	Id   uuid.UUID
 }
 
 func NewGame() *ChessGame {
@@ -29,18 +29,18 @@ func NewGame() *ChessGame {
 	}
 
 	return &ChessGame{
-		id:   gid,
+		Id:   gid,
 		Game: *chess.NewGame(),
 	}
 }
 
-func (p *Player) WaitGame() *uuid.UUID {
+func (p *Player) WaitGame() *ChessGame {
 	waitTime := time.NewTimer(time.Second * 2)
 
 	select {
 	case gid := <-p.Match:
 		log.Println("Matched..")
-		return &gid.id
+		return gid
 	case <-waitTime.C:
 		log.Println("No Match found..")
 		return nil

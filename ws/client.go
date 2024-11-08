@@ -10,11 +10,11 @@ import (
 )
 
 type Client struct {
-	id            uuid.UUID
 	conn          *websocket.Conn
 	manager       *Manager
 	ingress       chan Event
 	Playerprofile *game.Player
+	id            uuid.UUID
 }
 
 func NewClient(m *Manager, id uuid.UUID, c *websocket.Conn) *Client {
