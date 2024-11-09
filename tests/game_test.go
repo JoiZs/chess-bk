@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -8,11 +9,39 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JoiZs/chess-bk/cachedb"
 	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
+	"github.com/joho/godotenv"
 )
 
 func TestAll(t *testing.T) {
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Fatal("Err at loading .env ")
+	}
+	t.Run("Create and Retrieve Game", func(t *testing.T) {
+		t.Parallel()
+		cg := game.NewGame()
+		log.Println("New Game....")
+		ctx := context.Background()
+
+		cache := cachedb.NewRdCache(ctx)
+		log.Println("New Cache")
+
+		err := cache.StoreGame(cg.Id, cg.Game)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rtG := cache.RetrieveGame(cg.Id)
+
+		if rtG == nil {
+			t.Error("Cannot RetrieveGame from redis")
+		}
+
+		log.Printf("Game: %v", rtG)
+	})
 	t.Run("Add 1 Player and wait timeout",
 		func(t *testing.T) {
 			t.Parallel()

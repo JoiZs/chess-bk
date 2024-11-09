@@ -19,9 +19,9 @@ type RdCache struct {
 
 type CacheGame struct {
 	Moves   []*chess.MoveHistory `json:"moves" redis:"moves"`
-	Fen     string               `json:"fen" redis:"fen"`
-	CurrPos chess.Position       `json:"currpos" redis:"currpos"`
+	Turn    chess.Color          `json:"turn" redis:"turn"`
 	Outcome chess.Outcome        `json:"outcome" redis:"outcome"`
+	Fen     string               `json:"fen" redis:"fen"`
 }
 
 func NewRdCache(ctx context.Context) *RdCache {
@@ -34,7 +34,7 @@ func NewRdCache(ctx context.Context) *RdCache {
 
 	testConn := newRdC.Ping(ctx)
 
-	log.Printf("Test redis connection, ", testConn)
+	log.Printf("Test redis connection, %v", testConn)
 
 	return &RdCache{rdc: newRdC, ctx: ctx}
 }
@@ -43,7 +43,7 @@ func (r *RdCache) StoreGame(gid uuid.UUID, gcg chess.Game) error {
 	cacheg := CacheGame{
 		Moves:   gcg.MoveHistory(),
 		Fen:     gcg.FEN(),
-		CurrPos: *gcg.Position(),
+		Turn:    gcg.Position().Turn(),
 		Outcome: gcg.Outcome(),
 	}
 	data, err := json.Marshal(cacheg)
@@ -51,18 +51,29 @@ func (r *RdCache) StoreGame(gid uuid.UUID, gcg chess.Game) error {
 		log.Printf("Err at marshaling chessGame-JSON, %v", err)
 	}
 
-	status := r.rdc.Set(r.ctx, gid.String(), data, time.Hour*2)
+	err = r.rdc.Set(r.ctx, gid.String(), data, time.Hour*2).Err()
+	if err != nil {
+		log.Printf("Err at adding game to redis: %v", gid.String())
+		return err
+	}
 
-	log.Printf("Added game to redis: %v", status)
+	log.Printf("Added game to redis: %v", gid.String())
 
 	return nil
 }
 
 func (r *RdCache) RetrieveGame(gid uuid.UUID) *CacheGame {
+	data, err := r.rdc.Get(r.ctx, gid.String()).Result()
+	if err != nil {
+		log.Printf("Err at RedisGame Scan, %v", err)
+	}
 	var crrG CacheGame
-	r.rdc.Get(r.ctx, gid.String()).Scan(crrG)
+	err = json.Unmarshal([]byte(data), &crrG)
+	if err != nil {
+		log.Printf("Err at Unmarshalling game data, %v", err)
+	}
 
-	log.Printf("Get game from redis: ", crrG)
+	log.Printf("Get game (%v) from redis: %v", gid, crrG)
 
 	return &crrG
 }
