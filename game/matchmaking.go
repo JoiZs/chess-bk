@@ -3,8 +3,11 @@ package game
 import (
 	"container/heap"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
+
+	"github.com/notnil/chess"
 )
 
 type PlayerPoolQ []*Player
@@ -87,8 +90,12 @@ func (mq *MatchMakingQ) MatchingPlayers() {
 
 		nGame := NewGame()
 
+		firstColor := getRandomChessColor()
+
 		p1.Match <- nGame
+		p1.Color <- firstColor
 		p2.Match <- nGame
+		p2.Color <- firstColor.Other()
 
 		log.Printf("Paired: %v & %v\n", p1.Client, p2.Client)
 	}
@@ -112,4 +119,9 @@ func (mq *MatchMakingQ) RemoveTimeoutPlayers() {
 			return
 		}
 	}
+}
+
+func getRandomChessColor() chess.Color {
+	colors := [2]chess.Color{chess.White, chess.Black}
+	return colors[rand.Intn(2)]
 }

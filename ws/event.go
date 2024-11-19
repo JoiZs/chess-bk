@@ -188,7 +188,7 @@ func FindMatchEventHandler(event Event, c *Client) error {
 		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", currMatch.Id))
 
 		c.ingress <- msgEvt
-		c.manager.rdClient.StoreGame(currMatch.Id, currMatch.Game)
+		c.manager.rdClient.StoreGame(currMatch.Id, *currMatch.Game)
 		c.manager.mu.Lock()
 
 		// Add game session to manager
@@ -248,6 +248,10 @@ func SendMessageEventHandler(event Event, c *Client) error {
 }
 
 func GetMatchEventHandler(event Event, c *Client) error {
+	if !c.IsValidPlayer() {
+		return ErrGameSessionNotFound
+	}
+
 	var tempPayload ReceivedMatchEvent
 
 	if err := json.Unmarshal(event.Payload, &tempPayload); err != nil {
@@ -260,6 +264,10 @@ func GetMatchEventHandler(event Event, c *Client) error {
 	}
 
 	currGame := c.manager.rdClient.RetrieveGame(gid)
+
+	if currGame == nil {
+		return ErrGameSessionNotFound
+	}
 
 	var tempBcMsg NewGameInfoEvent
 
@@ -277,5 +285,36 @@ func GetMatchEventHandler(event Event, c *Client) error {
 	BroadcastEvt.Type = MatchInfo
 
 	c.ingress <- BroadcastEvt
+	return nil
+}
+
+func ResignEventHandler(event Event, c *Client) error {
+	if !c.IsValidPlayer() {
+		return ErrGameSessionNotFound
+	}
+
+	var tempPayload ReceivedMatchEvent
+
+	if err := json.Unmarshal(event.Payload, &tempPayload); err != nil {
+		return fmt.Errorf("err at event json unmarshal, %v", err)
+	}
+
+	gid, err := uuid.FromString(tempPayload.GameSess)
+	if err != nil {
+		return fmt.Errorf("err at game session id, %v", err)
+	}
+
+	if c.manager.rdClient.RetrieveGame(gid) == nil {
+		return ErrGameSessionNotFound
+	}
+
+	currGame := c.Playerprofile.GetGame()
+
+	if currGame == nil || currGame.Game == nil {
+		return ErrGameSessionNotFound
+	}
+
+	currGame.Game.Resign(<-c.Playerprofile.Color)
+
 	return nil
 }

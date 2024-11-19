@@ -101,6 +101,7 @@ func (c *Client) BreakConn() {
 	c.manager.mu.Lock()
 	defer c.manager.mu.Unlock()
 	c.conn.Close()
+	delete(c.manager.gameSess, *c.Playerprofile.MatchID)
 	delete(c.manager.clients, c)
 	delete(c.manager.clientsByID, c.id)
 }
@@ -108,4 +109,20 @@ func (c *Client) BreakConn() {
 func (c *Client) pongHandler(msg string) error {
 	log.Print("pong")
 	return c.conn.SetReadDeadline(time.Now().Add(pongWaitTime))
+}
+
+func (c *Client) IsValidPlayer() bool {
+	player := c.Playerprofile
+
+	gamesess := c.manager.rdClient.RetrieveGame(*player.MatchID)
+
+	if c.Playerprofile.GetGame() == nil {
+		return false
+	}
+
+	if gamesess != nil {
+		return false
+	}
+
+	return true
 }

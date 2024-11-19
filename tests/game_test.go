@@ -29,7 +29,7 @@ func TestAll(t *testing.T) {
 		cache := cachedb.NewRdCache(ctx)
 		log.Println("New Cache")
 
-		err := cache.StoreGame(cg.Id, cg.Game)
+		err := cache.StoreGame(cg.Id, *cg.Game)
 		if err != nil {
 			t.Fatal(err)
 		}
