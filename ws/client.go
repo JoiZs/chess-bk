@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
@@ -17,6 +18,11 @@ type Client struct {
 	id            uuid.UUID
 }
 
+var (
+	pongWaitTime = time.Second * 10
+	pongInterval = pongWaitTime * 9 / 10
+)
+
 func NewClient(m *Manager, id uuid.UUID, c *websocket.Conn) *Client {
 	return &Client{
 		id:            id,
@@ -28,6 +34,13 @@ func NewClient(m *Manager, id uuid.UUID, c *websocket.Conn) *Client {
 }
 
 func (c *Client) ReadMsg() {
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWaitTime)); err != nil {
+		log.Println(err)
+		return
+	}
+
+	c.conn.SetPongHandler(c.pongHandler)
+
 	for {
 		_, pl, err := c.conn.ReadMessage()
 		if err != nil {
@@ -50,16 +63,37 @@ func (c *Client) ReadMsg() {
 }
 
 func (c *Client) WriteMsg() {
-	for message := range c.ingress {
-		data, err := json.Marshal(message)
-		if err != nil {
-			log.Println(err)
-			return
+	ticker := time.NewTicker(pongInterval)
+
+	for {
+		select {
+		case message, ok := <-c.ingress:
+
+			if !ok {
+				if err := c.conn.WriteMessage(websocket.CloseMessage, nil); err != nil {
+					log.Println("connection closed: ", err)
+				}
+				return
+			}
+
+			data, err := json.Marshal(message)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Println(err)
+			}
+			log.Println("Message Sent")
+
+		case <-ticker.C:
+			log.Println("ping")
+			if err := c.conn.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
+				log.Printf("Err at ping: %v", err)
+				return
+			}
+
 		}
-		if err := c.conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Println(err)
-		}
-		log.Println("Message Sent")
 	}
 }
 
@@ -69,4 +103,9 @@ func (c *Client) BreakConn() {
 	c.conn.Close()
 	delete(c.manager.clients, c)
 	delete(c.manager.clientsByID, c.id)
+}
+
+func (c *Client) pongHandler(msg string) error {
+	log.Print("pong")
+	return c.conn.SetReadDeadline(time.Now().Add(pongWaitTime))
 }

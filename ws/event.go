@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/JoiZs/chess-bk/cachedb"
 	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
 )
@@ -16,11 +17,11 @@ type EventType int
 const (
 	SendMessage EventType = iota
 	FindMatch
+	MatchInfo
 	RematchReq
 	RematchRes
 	Resign
 	MakeMove
-	GetMatchInfo
 )
 
 type Event struct {
@@ -33,7 +34,7 @@ type EventHandler func(e Event, c *Client) error
 var (
 	ErrGameSessionNotFound = errors.New("not found the current game sessin")
 	ErrGameSessionFull     = errors.New("game session is already assigned for 2 players")
-	ErrGameAreadyFinding   = errors.New("already in finding pool, cannot request...")
+	ErrGameAreadyFinding   = errors.New("already in finding pool, cannot request")
 )
 
 type ReceivedMessageEvent struct {
@@ -50,7 +51,12 @@ type NewMessageEvent struct {
 	ReceivedMessageEvent
 }
 
-type ReceivedRematchEvent struct {
+type NewGameInfoEvent struct {
+	cachedb.CacheGame
+	At time.Time `json:"at"`
+}
+
+type ReceivedMatchEvent struct {
 	From     string `json:"from"`
 	GameSess string `json:"gamesess"`
 	IsGame   bool   `json:"isgame"`
@@ -58,7 +64,7 @@ type ReceivedRematchEvent struct {
 
 type RematchReqEvent struct {
 	At time.Time `json:"at"`
-	ReceivedRematchEvent
+	ReceivedMatchEvent
 }
 
 func makeMsgEvt(msg string) Event {
@@ -84,7 +90,7 @@ func makeMsgEvt(msg string) Event {
 }
 
 func RematchReqEventHandler(event Event, c *Client) error {
-	var ReceivedRematchMsg ReceivedRematchEvent
+	var ReceivedRematchMsg ReceivedMatchEvent
 
 	err := json.Unmarshal(event.Payload, &ReceivedRematchMsg)
 	if err != nil {
@@ -96,7 +102,6 @@ func RematchReqEventHandler(event Event, c *Client) error {
 	if err != nil {
 		log.Println("Err at parsing rematch uuid.")
 		return err
-
 	}
 
 	currGameSession, ok := c.manager.gameSess[gsuid]
@@ -138,7 +143,7 @@ func RematchReqEventHandler(event Event, c *Client) error {
 }
 
 func RematchResEventHandler(event Event, c *Client) error {
-	var ReceivedRematchMsg ReceivedRematchEvent
+	var ReceivedRematchMsg ReceivedMatchEvent
 
 	err := json.Unmarshal(event.Payload, &ReceivedRematchMsg)
 	if err != nil {
@@ -181,11 +186,11 @@ func FindMatchEventHandler(event Event, c *Client) error {
 
 	if currMatch != nil {
 		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", currMatch.Id))
+
 		c.ingress <- msgEvt
-
 		c.manager.rdClient.StoreGame(currMatch.Id, currMatch.Game)
-
 		c.manager.mu.Lock()
+
 		// Add game session to manager
 		currPlayers, ok := c.manager.gameSess[currMatch.Id]
 		if !ok {
@@ -216,7 +221,7 @@ func SendMessageEventHandler(event Event, c *Client) error {
 	var tempPayload ReceivedMessageEvent
 
 	if err := json.Unmarshal(event.Payload, &tempPayload); err != nil {
-		fmt.Printf("Err at event json unmarshal, %v", err)
+		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
 	var tempBcMsg NewMessageEvent
@@ -239,5 +244,38 @@ func SendMessageEventHandler(event Event, c *Client) error {
 		el.ingress <- BroadcastEvt
 	}
 
+	return nil
+}
+
+func GetMatchEventHandler(event Event, c *Client) error {
+	var tempPayload ReceivedMatchEvent
+
+	if err := json.Unmarshal(event.Payload, &tempPayload); err != nil {
+		return fmt.Errorf("err at event json unmarshal, %v", err)
+	}
+
+	gid, err := uuid.FromString(tempPayload.GameSess)
+	if err != nil {
+		return fmt.Errorf("err at game session id, %v", err)
+	}
+
+	currGame := c.manager.rdClient.RetrieveGame(gid)
+
+	var tempBcMsg NewGameInfoEvent
+
+	tempBcMsg.CacheGame = *currGame
+	tempBcMsg.At = time.Now()
+
+	data, err := json.Marshal(tempBcMsg)
+	if err != nil {
+		return fmt.Errorf("err at marshaling data, %v", err)
+	}
+
+	var BroadcastEvt Event
+
+	BroadcastEvt.Payload = data
+	BroadcastEvt.Type = MatchInfo
+
+	c.ingress <- BroadcastEvt
 	return nil
 }

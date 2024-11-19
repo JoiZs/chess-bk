@@ -53,6 +53,7 @@ func (m *Manager) setupEventHandlers() {
 	m.handlers[FindMatch] = FindMatchEventHandler
 	m.handlers[RematchReq] = RematchReqEventHandler
 	m.handlers[RematchRes] = RematchResEventHandler
+	m.handlers[MatchInfo] = GetMatchEventHandler
 }
 
 func (m *Manager) routeEvent(event Event, c *Client) error {
