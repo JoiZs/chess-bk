@@ -208,7 +208,7 @@ func FindMatchEventHandler(event Event, c *Client) error {
 		}
 		c.manager.mu.Unlock()
 
-		log.Printf("game session stored(%v) - %v players: ", c.manager.gameSess, currPlayers)
+		log.Printf("game session stored(%v) -  players: %v", currMatch.Id, currPlayers)
 
 		return nil
 	}
@@ -306,7 +306,7 @@ func ResignEventHandler(event Event, c *Client) error {
 		return ErrGameSessionNotFound
 	}
 
-	currGame.Game.Resign(<-c.Playerprofile.Color)
+	currGame.Game.Resign(c.Playerprofile.Color)
 
 	return nil
 }
@@ -329,7 +329,7 @@ func MakeMoveHandler(event Event, c *Client) error {
 		return ErrGameSessionNotFound
 	}
 
-	if <-c.Playerprofile.Color != currGame.Game.Position().Turn() {
+	if c.Playerprofile.Color != currGame.Game.Position().Turn() {
 		return ErrWaitYourTurn
 	}
 

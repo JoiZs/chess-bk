@@ -93,9 +93,9 @@ func (mq *MatchMakingQ) MatchingPlayers() {
 		firstColor := getRandomChessColor()
 
 		p1.Match <- nGame
-		p1.Color <- firstColor
+		p1.Color = firstColor
 		p2.Match <- nGame
-		p2.Color <- firstColor.Other()
+		p2.Color = firstColor.Other()
 
 		log.Printf("Paired: %v & %v\n", p1.Client, p2.Client)
 	}

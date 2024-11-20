@@ -16,7 +16,7 @@ type Player struct {
 	index    int
 	Client   uuid.UUID
 	Rematch  bool
-	Color    chan chess.Color
+	Color    chess.Color
 }
 
 type ChessGame struct {
@@ -27,7 +27,8 @@ type ChessGame struct {
 func NewGame() *ChessGame {
 	gid, err := uuid.NewV1()
 	if err != nil {
-		fmt.Printf("Err at creating chess game id: %v", err)
+		fmt.Printf(
+			"Err at creating chess game id: %v", err)
 	}
 
 	return &ChessGame{
@@ -58,7 +59,7 @@ func NewPlayer(cid uuid.UUID, idx int) *Player {
 		index:    idx,
 		Match:    make(chan *ChessGame),
 		Rematch:  false,
-		Color:    make(chan chess.Color),
+		Color:    chess.White,
 	}
 
 	log.Println("Created a new Player.")
