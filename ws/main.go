@@ -55,6 +55,7 @@ func (m *Manager) setupEventHandlers() {
 	m.handlers[RematchRes] = RematchResEventHandler
 	m.handlers[MatchInfo] = GetMatchEventHandler
 	m.handlers[Resign] = ResignEventHandler
+	m.handlers[MakeMove] = MakeMoveHandler
 }
 
 func (m *Manager) routeEvent(event Event, c *Client) error {

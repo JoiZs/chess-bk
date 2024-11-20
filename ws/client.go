@@ -8,6 +8,7 @@ import (
 	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/notnil/chess"
 )
 
 type Client struct {
@@ -19,7 +20,7 @@ type Client struct {
 }
 
 var (
-	pongWaitTime = time.Second * 10
+	pongWaitTime = time.Second * 15
 	pongInterval = pongWaitTime * 9 / 10
 )
 
@@ -87,7 +88,7 @@ func (c *Client) WriteMsg() {
 			log.Println("Message Sent")
 
 		case <-ticker.C:
-			log.Println("ping")
+			// log.Println("ping")
 			if err := c.conn.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
 				log.Printf("Err at ping: %v", err)
 				return
@@ -107,7 +108,7 @@ func (c *Client) BreakConn() {
 }
 
 func (c *Client) pongHandler(msg string) error {
-	log.Print("pong")
+	// log.Print("pong")
 	return c.conn.SetReadDeadline(time.Now().Add(pongWaitTime))
 }
 
@@ -116,13 +117,26 @@ func (c *Client) IsValidPlayer() bool {
 
 	gamesess := c.manager.rdClient.RetrieveGame(*player.MatchID)
 
-	if c.Playerprofile.GetGame() == nil {
+	if gamesess == nil {
 		return false
-	}
-
-	if gamesess != nil {
+	} else if gamesess.Outcome != chess.NoOutcome {
+		return false
+	} else if c.Playerprofile.GetGame() == nil {
 		return false
 	}
 
 	return true
+}
+
+func (c *Client) GetOpponent() *game.Player {
+	players := c.manager.gameSess[*c.Playerprofile.MatchID]
+	var opponent game.Player
+
+	for _, p := range players {
+		if p.Client != c.Playerprofile.Client {
+			opponent = p
+		}
+	}
+
+	return &opponent
 }

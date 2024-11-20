@@ -35,6 +35,8 @@ var (
 	ErrGameSessionNotFound = errors.New("not found the current game sessin")
 	ErrGameSessionFull     = errors.New("game session is already assigned for 2 players")
 	ErrGameAreadyFinding   = errors.New("already in finding pool, cannot request")
+	ErrWaitYourTurn        = errors.New("wait for your turn")
+	ErrInvalidMove         = errors.New("invalid move")
 )
 
 type ReceivedMessageEvent struct {
@@ -56,10 +58,14 @@ type NewGameInfoEvent struct {
 	At time.Time `json:"at"`
 }
 
+type ReceivedMoveEvent struct {
+	ReceivedMatchEvent
+	Move string `json:"move"`
+}
+
 type ReceivedMatchEvent struct {
 	From     string `json:"from"`
 	GameSess string `json:"gamesess"`
-	IsGame   bool   `json:"isgame"`
 }
 
 type RematchReqEvent struct {
@@ -118,7 +124,6 @@ func RematchReqEventHandler(event Event, c *Client) error {
 			msgRem.At = time.Now()
 			msgRem.From = ReceivedRematchMsg.From
 			msgRem.GameSess = ReceivedRematchMsg.GameSess
-			msgRem.IsGame = ReceivedRematchMsg.IsGame
 
 			data, err := json.Marshal(msgRem)
 			if err != nil {
@@ -252,26 +257,22 @@ func GetMatchEventHandler(event Event, c *Client) error {
 		return ErrGameSessionNotFound
 	}
 
-	var tempPayload ReceivedMatchEvent
+	var tempPayload ReceivedMoveEvent
 
-	if err := json.Unmarshal(event.Payload, &tempPayload); err != nil {
+	err := json.Unmarshal(event.Payload, &tempPayload)
+	if err != nil {
 		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
-	gid, err := uuid.FromString(tempPayload.GameSess)
-	if err != nil {
-		return fmt.Errorf("err at game session id, %v", err)
-	}
+	currGame := c.Playerprofile.GetGame()
 
-	currGame := c.manager.rdClient.RetrieveGame(gid)
-
-	if currGame == nil {
+	if currGame == nil || currGame.Game == nil {
 		return ErrGameSessionNotFound
 	}
 
 	var tempBcMsg NewGameInfoEvent
 
-	tempBcMsg.CacheGame = *currGame
+	tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
 	tempBcMsg.At = time.Now()
 
 	data, err := json.Marshal(tempBcMsg)
@@ -299,13 +300,27 @@ func ResignEventHandler(event Event, c *Client) error {
 		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
-	gid, err := uuid.FromString(tempPayload.GameSess)
-	if err != nil {
-		return fmt.Errorf("err at game session id, %v", err)
+	currGame := c.Playerprofile.GetGame()
+
+	if currGame == nil || currGame.Game == nil {
+		return ErrGameSessionNotFound
 	}
 
-	if c.manager.rdClient.RetrieveGame(gid) == nil {
+	currGame.Game.Resign(<-c.Playerprofile.Color)
+
+	return nil
+}
+
+func MakeMoveHandler(event Event, c *Client) error {
+	if !c.IsValidPlayer() {
 		return ErrGameSessionNotFound
+	}
+
+	var tempPayload ReceivedMoveEvent
+
+	err := json.Unmarshal(event.Payload, &tempPayload)
+	if err != nil {
+		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
 	currGame := c.Playerprofile.GetGame()
@@ -314,7 +329,33 @@ func ResignEventHandler(event Event, c *Client) error {
 		return ErrGameSessionNotFound
 	}
 
-	currGame.Game.Resign(<-c.Playerprofile.Color)
+	if <-c.Playerprofile.Color != currGame.Game.Position().Turn() {
+		return ErrWaitYourTurn
+	}
+
+	err = currGame.Game.MoveStr(tempPayload.Move)
+	if err != nil {
+		return ErrInvalidMove
+	}
+
+	c.manager.rdClient.StoreGame(currGame.Id, *currGame.Game)
+
+	var tempBcMsg NewGameInfoEvent
+
+	tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
+	tempBcMsg.At = time.Now()
+
+	data, err := json.Marshal(tempBcMsg)
+	if err != nil {
+		return fmt.Errorf("err at marshaling data, %v", err)
+	}
+
+	var BroadcastEvt Event
+
+	BroadcastEvt.Payload = data
+	BroadcastEvt.Type = MatchInfo
+
+	c.ingress <- BroadcastEvt
 
 	return nil
 }

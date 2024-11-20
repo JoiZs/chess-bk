@@ -37,7 +37,7 @@ func NewGame() *ChessGame {
 }
 
 func (p *Player) WaitGame() *ChessGame {
-	waitTime := time.NewTimer(time.Second * 2)
+	waitTime := time.NewTimer(time.Second * 10)
 
 	select {
 	case gid := <-p.Match:
@@ -67,9 +67,5 @@ func NewPlayer(cid uuid.UUID, idx int) *Player {
 }
 
 func (p *Player) GetGame() *ChessGame {
-	if p.Match == nil {
-		return nil
-	}
-
 	return <-p.Match
 }
