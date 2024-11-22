@@ -39,6 +39,17 @@ func NewRdCache(ctx context.Context) *RdCache {
 	return &RdCache{rdc: newRdC, ctx: ctx}
 }
 
+func CreateCacheGame(gg chess.Game) *CacheGame {
+	cacheg := CacheGame{
+		Moves:   make([]*chess.MoveHistory, 0),
+		Fen:     gg.FEN(),
+		Turn:    gg.Position().Turn(),
+		Outcome: gg.Outcome(),
+	}
+
+	return &cacheg
+}
+
 func (r *RdCache) StoreGame(gid uuid.UUID, gcg chess.Game) error {
 	cacheg := CacheGame{
 		Moves:   gcg.MoveHistory(),

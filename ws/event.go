@@ -344,13 +344,11 @@ func MakeMoveHandler(event Event, c *Client) error {
 		return ErrInvalidMove
 	}
 
-	log.Println(currGame.Position())
-
-	// c.manager.rdClient.StoreGame(*c.Playerprofile.MatchID, *currGame)
+	tempCG := cachedb.CreateCacheGame(*currGame)
 
 	var tempBcMsg NewGameInfoEvent
 
-	// tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
+	tempBcMsg.CacheGame = *tempCG
 	tempBcMsg.At = time.Now()
 
 	data, err := json.Marshal(tempBcMsg)
@@ -363,7 +361,13 @@ func MakeMoveHandler(event Event, c *Client) error {
 	BroadcastEvt.Payload = data
 	BroadcastEvt.Type = MatchInfo
 
-	c.ingress <- BroadcastEvt
+	for _, p := range c.manager.gameSess[*c.Playerprofile.MatchID] {
+		cl, ok := c.manager.clientsByID[p.Client]
+		if !ok {
+			return fmt.Errorf("no client found, %v", err)
+		}
+		cl.ingress <- BroadcastEvt
+	}
 
 	return nil
 }
