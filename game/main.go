@@ -66,7 +66,3 @@ func NewPlayer(cid uuid.UUID, idx int) *Player {
 
 	return player
 }
-
-func (p *Player) GetGame() *ChessGame {
-	return <-p.Match
-}

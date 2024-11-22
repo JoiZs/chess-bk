@@ -11,6 +11,7 @@ import (
 	"github.com/JoiZs/chess-bk/game"
 	"github.com/gofrs/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/notnil/chess"
 )
 
 var ErrEventNotSupported = errors.New("this event type is not supported")
@@ -26,6 +27,7 @@ type Manager struct {
 	handlers    map[EventType]EventHandler
 	matchQ      *game.MatchMakingQ
 	gameSess    map[uuid.UUID][2]game.Player
+	chessGames  map[uuid.UUID]*chess.Game
 	rdClient    *cachedb.RdCache
 	mu          sync.RWMutex
 }
@@ -41,6 +43,7 @@ func InitManager(ctx context.Context) *Manager {
 		matchQ:      mq,
 		gameSess:    make(map[uuid.UUID][2]game.Player),
 		clientsByID: make(map[uuid.UUID]*Client),
+		chessGames:  make(map[uuid.UUID]*chess.Game),
 		rdClient:    rd,
 	}
 	m.setupEventHandlers()

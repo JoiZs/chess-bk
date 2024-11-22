@@ -102,6 +102,7 @@ func (c *Client) BreakConn() {
 	c.manager.mu.Lock()
 	defer c.manager.mu.Unlock()
 	c.conn.Close()
+	delete(c.manager.chessGames, *c.Playerprofile.MatchID)
 	delete(c.manager.gameSess, *c.Playerprofile.MatchID)
 	delete(c.manager.clients, c)
 	delete(c.manager.clientsByID, c.id)
@@ -117,11 +118,12 @@ func (c *Client) IsValidPlayer() bool {
 
 	gamesess := c.manager.rdClient.RetrieveGame(*player.MatchID)
 
-	if gamesess == nil {
+	_, ok := c.manager.chessGames[*player.MatchID]
+	if !ok {
+		return false
+	} else if gamesess == nil {
 		return false
 	} else if gamesess.Outcome != chess.NoOutcome {
-		return false
-	} else if c.Playerprofile.GetGame() == nil {
 		return false
 	}
 

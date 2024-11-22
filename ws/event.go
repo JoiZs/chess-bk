@@ -193,8 +193,9 @@ func FindMatchEventHandler(event Event, c *Client) error {
 		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", currMatch.Id))
 
 		c.ingress <- msgEvt
-		c.manager.rdClient.StoreGame(currMatch.Id, *currMatch.Game)
 		c.manager.mu.Lock()
+		c.manager.chessGames[currMatch.Id] = currMatch.Game
+		c.manager.rdClient.StoreGame(currMatch.Id, *currMatch.Game)
 
 		// Add game session to manager
 		currPlayers, ok := c.manager.gameSess[currMatch.Id]
@@ -206,8 +207,8 @@ func FindMatchEventHandler(event Event, c *Client) error {
 			currPlayers[1] = *p
 			c.manager.gameSess[currMatch.Id] = currPlayers
 		}
-		c.manager.mu.Unlock()
 
+		c.manager.mu.Unlock()
 		log.Printf("game session stored(%v) -  players: %v", currMatch.Id, currPlayers)
 
 		return nil
@@ -264,15 +265,11 @@ func GetMatchEventHandler(event Event, c *Client) error {
 		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
-	currGame := c.Playerprofile.GetGame()
-
-	if currGame == nil || currGame.Game == nil {
-		return ErrGameSessionNotFound
-	}
-
 	var tempBcMsg NewGameInfoEvent
 
-	tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
+	cgame := c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
+
+	tempBcMsg.CacheGame = *cgame
 	tempBcMsg.At = time.Now()
 
 	data, err := json.Marshal(tempBcMsg)
@@ -300,14 +297,18 @@ func ResignEventHandler(event Event, c *Client) error {
 		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
-	currGame := c.Playerprofile.GetGame()
+	currGame, ok := c.manager.chessGames[*c.Playerprofile.MatchID]
 
-	if currGame == nil || currGame.Game == nil {
+	if !ok {
 		return ErrGameSessionNotFound
 	}
 
-	currGame.Game.Resign(c.Playerprofile.Color)
+	currGame.Resign(c.Playerprofile.Color)
+	c.manager.rdClient.StoreGame(*c.Playerprofile.MatchID, *currGame)
 
+	msgEvt := makeMsgEvt(fmt.Sprintf("Resigned the match: %v", c.Playerprofile.Match))
+
+	c.ingress <- msgEvt
 	return nil
 }
 
@@ -323,26 +324,33 @@ func MakeMoveHandler(event Event, c *Client) error {
 		return fmt.Errorf("err at event json unmarshal, %v", err)
 	}
 
-	currGame := c.Playerprofile.GetGame()
+	currGame, ok := c.manager.chessGames[*c.Playerprofile.MatchID]
 
-	if currGame == nil || currGame.Game == nil {
+	if !ok {
 		return ErrGameSessionNotFound
 	}
 
-	if c.Playerprofile.Color != currGame.Game.Position().Turn() {
+	if c.Playerprofile.Color != currGame.Position().Turn() {
+		msgEvt := makeMsgEvt(fmt.Sprintf("Wait your turn: %v", tempPayload.Move))
+		c.ingress <- msgEvt
 		return ErrWaitYourTurn
 	}
 
-	err = currGame.Game.MoveStr(tempPayload.Move)
+	err = currGame.MoveStr(tempPayload.Move)
 	if err != nil {
+		msgEvt := makeMsgEvt(fmt.Sprintf("Invalid Move: %v", tempPayload.Move))
+		c.ingress <- msgEvt
+
 		return ErrInvalidMove
 	}
 
-	c.manager.rdClient.StoreGame(currGame.Id, *currGame.Game)
+	log.Println(currGame.Position())
+
+	// c.manager.rdClient.StoreGame(*c.Playerprofile.MatchID, *currGame)
 
 	var tempBcMsg NewGameInfoEvent
 
-	tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
+	// tempBcMsg.CacheGame = *c.manager.rdClient.RetrieveGame(*c.Playerprofile.MatchID)
 	tempBcMsg.At = time.Now()
 
 	data, err := json.Marshal(tempBcMsg)
