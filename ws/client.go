@@ -54,8 +54,10 @@ func (c *Client) ReadMsg() {
 
 		if err := json.Unmarshal(pl, &request); err != nil {
 			log.Printf("Err at requst event json Unmarshal, %v", err)
-			break
+			time.Sleep(time.Second * 10)
+			// break
 		}
+
 		if err := c.manager.routeEvent(request, c); err != nil {
 			log.Println("Err handling message route event,", err)
 		}
