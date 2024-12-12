@@ -35,6 +35,8 @@ func NewClient(m *Manager, id uuid.UUID, c *websocket.Conn) *Client {
 }
 
 func (c *Client) ReadMsg() {
+	defer c.BreakConn()
+
 	if err := c.conn.SetReadDeadline(time.Now().Add(pongWaitTime)); err != nil {
 		log.Println(err)
 		return
@@ -45,9 +47,14 @@ func (c *Client) ReadMsg() {
 	for {
 		_, pl, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseAbnormalClosure, websocket.CloseMessage, websocket.CloseGoingAway) {
+			if websocket.IsCloseError(err, websocket.CloseAbnormalClosure, websocket.CloseMessage, websocket.CloseGoingAway) {
+				log.Println(err)
 				break
 			}
+		}
+
+		if len(pl) <= 0 {
+			break
 		}
 
 		var request Event
@@ -62,7 +69,7 @@ func (c *Client) ReadMsg() {
 			log.Println("Err handling message route event,", err)
 		}
 	}
-	defer c.BreakConn()
+	// defer c.BreakConn()
 }
 
 func (c *Client) WriteMsg() {
@@ -92,6 +99,7 @@ func (c *Client) WriteMsg() {
 		case <-ticker.C:
 			// log.Println("ping")
 			if err := c.conn.WriteMessage(websocket.PingMessage, []byte(``)); err != nil {
+				c.BreakConn()
 				log.Printf("Err at ping: %v", err)
 				return
 			}
@@ -103,11 +111,14 @@ func (c *Client) WriteMsg() {
 func (c *Client) BreakConn() {
 	c.manager.mu.Lock()
 	defer c.manager.mu.Unlock()
-	c.conn.Close()
-	delete(c.manager.chessGames, *c.Playerprofile.MatchID)
-	delete(c.manager.gameSess, *c.Playerprofile.MatchID)
-	delete(c.manager.clients, c)
-	delete(c.manager.clientsByID, c.id)
+
+	if _, ok := c.manager.clients[c]; ok {
+
+		log.Printf("Closed: %v", c.id)
+		c.conn.Close()
+		delete(c.manager.clients, c)
+		delete(c.manager.clientsByID, c.id)
+	}
 }
 
 func (c *Client) pongHandler(msg string) error {
