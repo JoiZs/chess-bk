@@ -18,10 +18,10 @@ type RdCache struct {
 }
 
 type CacheGame struct {
-	Moves   []*chess.MoveHistory `json:"moves" redis:"moves"`
-	Turn    chess.Color          `json:"turn" redis:"turn"`
-	Outcome chess.Outcome        `json:"outcome" redis:"outcome"`
-	Fen     string               `json:"fen" redis:"fen"`
+	Moves   []string      `json:"moves" redis:"moves"`
+	Turn    chess.Color   `json:"turn" redis:"turn"`
+	Outcome chess.Outcome `json:"outcome" redis:"outcome"`
+	Fen     string        `json:"fen" redis:"fen"`
 }
 
 func NewRdCache(ctx context.Context) *RdCache {
@@ -41,7 +41,7 @@ func NewRdCache(ctx context.Context) *RdCache {
 
 func CreateCacheGame(gg chess.Game) *CacheGame {
 	cacheg := CacheGame{
-		Moves:   make([]*chess.MoveHistory, 0),
+		Moves:   make([]string, 0),
 		Fen:     gg.FEN(),
 		Turn:    gg.Position().Turn(),
 		Outcome: gg.Outcome(),
@@ -51,8 +51,13 @@ func CreateCacheGame(gg chess.Game) *CacheGame {
 }
 
 func (r *RdCache) StoreGame(gid uuid.UUID, gcg chess.Game) error {
+	var moveStrs []string
+	for _, move := range gcg.Moves() {
+		moveStrs = append(moveStrs, move.String()) // Use the String() method for each move
+	}
+
 	cacheg := CacheGame{
-		Moves:   gcg.MoveHistory(),
+		Moves:   moveStrs,
 		Fen:     gcg.FEN(),
 		Turn:    gcg.Position().Turn(),
 		Outcome: gcg.Outcome(),

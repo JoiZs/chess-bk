@@ -190,7 +190,7 @@ func FindMatchEventHandler(event Event, c *Client) error {
 	currMatch := p.WaitGame()
 
 	if currMatch != nil {
-		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v", currMatch.Id))
+		msgEvt := makeMsgEvt(fmt.Sprintf("Match found: %v, Color: %v ", currMatch.Id, c.Playerprofile.Color))
 
 		c.ingress <- msgEvt
 		c.manager.mu.Lock()
@@ -344,14 +344,26 @@ func MakeMoveHandler(event Event, c *Client) error {
 		return ErrInvalidMove
 	}
 
-	tempCG := cachedb.CreateCacheGame(*currGame)
+	// tempCG := cachedb.CreateCacheGame(*currGame)
 
 	var tempBcMsg NewGameInfoEvent
 
-	tempBcMsg.CacheGame = *tempCG
+	var moveStrs []string
+	for _, move := range currGame.Moves() {
+		moveStrs = append(moveStrs, move.String()) // Use the String() method for each move
+	}
+
+	tempBcMsg.CacheGame = cachedb.CacheGame{
+		Moves:   moveStrs,
+		Turn:    currGame.Position().Turn(),
+		Outcome: currGame.Outcome(),
+		Fen:     currGame.FEN(),
+	}
 	tempBcMsg.At = time.Now()
 
 	data, err := json.Marshal(tempBcMsg)
+	log.Println(tempBcMsg.CacheGame)
+	log.Println(string(data))
 	if err != nil {
 		return fmt.Errorf("err at marshaling data, %v", err)
 	}
